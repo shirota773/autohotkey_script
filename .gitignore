@@ -1,0 +1,16 @@
+# AutoHotkey temp files
+*.tmp
+*.bak
+
+# Windows temp files
+Thumbs.db
+Desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
