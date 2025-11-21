@@ -36,7 +36,7 @@ ShowCommandPalette() {
     }
 
     ; Build fzf command
-    fzfCmd := Format('powershell -Command "Get-Content ''{}'' | fzf --prompt=''M-x: '' --height=40% --reverse --border | Out-File -Encoding UTF8 ''{}''"',
+    fzfCmd := Format('powershell -Command "Get-Content ''{}'' | fzf --prompt=''M-x: '' --height=40%% --reverse --border | Out-File -Encoding UTF8 ''{}''"',
                      TempCommandFile, TempResultFile)
 
     ; Run fzf and wait for result
