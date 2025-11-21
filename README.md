@@ -114,8 +114,7 @@ YourNewFunction() {
 `ShowCommandPalette()` 関数内のfzfオプションを変更できます：
 
 ```ahk
-fzfCmd := Format('powershell -Command "Get-Content ''{}'' | fzf --prompt=''M-x: '' --height=40%% --reverse --border --preview-window=right:50%% | Out-File -Encoding UTF8 ''{}''"',
-                 TempCommandFile, TempResultFile)
+fzfCmd := "powershell -Command `"Get-Content '" TempCommandFile "' | fzf --prompt='M-x: ' --height=40% --reverse --border --preview-window=right:50% | Out-File -Encoding UTF8 '" TempResultFile "'`""
 ```
 
 fzfのオプション：
