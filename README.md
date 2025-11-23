@@ -1,34 +1,25 @@
 # AutoHotkey v2 Command Palette
 
-Emacsの`M-x`スタイルのコマンドパレットをAutoHotkey v2で実装しました。fzfを使って関数を絞り込んで実行できます。
+Emacsの`M-x`スタイルのコマンドパレットをAutoHotkey v2のネイティブGUIで実装しました。
+
+## 特徴
+
+- **外部依存なし**: AutoHotkey v2のみで動作（fzf不要）
+- **ネイティブGUI**: 美しいダークテーマのインターフェース
+- **ファジー検索**: リアルタイムでコマンドを絞り込み
+- **キーボード操作**: Enter、矢印キー、Ctrl+N/P（Emacs風）で操作可能
 
 ## 必要なもの
 
-1. **AutoHotkey v2** - [ダウンロード](https://www.autohotkey.com/)
-2. **fzf** - [ダウンロード](https://github.com/junegunn/fzf/releases)
+**AutoHotkey v2** のみ - [ダウンロード](https://www.autohotkey.com/)
 
 ## セットアップ
 
-### 1. fzfのインストール
-
-#### Windowsの場合:
-```powershell
-# Chocolateyを使用
-choco install fzf
-
-# または、Scoopを使用
-scoop install fzf
-
-# または、手動でダウンロード
-# https://github.com/junegunn/fzf/releases から fzf.exe をダウンロードし、
-# PATHの通った場所に配置
-```
-
-### 2. AutoHotkey v2のインストール
+### AutoHotkey v2のインストール
 
 [AutoHotkey v2公式サイト](https://www.autohotkey.com/)からダウンロードしてインストール
 
-### 3. スクリプトの実行
+### スクリプトの実行
 
 ```
 command-palette.ahk をダブルクリックして実行
@@ -40,32 +31,47 @@ command-palette.ahk をダブルクリックして実行
 
 ### コマンドパレットを開く
 
-**Alt + x** を押すと、fzfのコマンド選択画面が表示されます
+**Alt + x** を押すと、コマンドパレットGUIが表示されます
 
-### コマンド一覧
+### 操作方法
 
-#### AutoHotkey制御
+- **文字入力**: コマンドを絞り込み（ファジー検索）
+- **↑/↓ キー**: 候補を選択
+- **Ctrl+N/P**: 候補を選択（Emacs風）
+- **Enter**: 選択したコマンドを実行
+- **Esc**: コマンドパレットを閉じる
+- **ダブルクリック**: マウスでコマンドを実行
+
+### ファジー検索の例
+
+- `lnp` と入力 → `launch-notepad` がマッチ
+- `mwl` と入力 → `move-window-left` がマッチ
+- `rwh` と入力 → `resize-window-half` がマッチ
+
+## コマンド一覧
+
+### AutoHotkey制御
 - `reload-autohotkey` - スクリプトをリロード
 - `suspend-autohotkey` - ホットキーを一時停止
 - `resume-autohotkey` - ホットキーを再開
 - `exit-autohotkey` - AutoHotkeyを終了
 
-#### アプリケーション起動
+### アプリケーション起動
 - `launch-notepad` - メモ帳を起動
 - `launch-calculator` - 電卓を起動
 - `launch-browser` - ブラウザを起動
 - `launch-terminal` - ターミナルを起動（Windows Terminal or cmd）
 
-#### ウィンドウ移動
+### ウィンドウ移動
 - `move-window-left` - アクティブウィンドウを画面左半分に移動
 - `move-window-right` - アクティブウィンドウを画面右半分に移動
 - `move-window-center` - アクティブウィンドウを画面中央に移動
 
-#### ウィンドウリサイズ
+### ウィンドウリサイズ
 - `resize-window-half` - アクティブウィンドウを画面の半分にリサイズ
 - `resize-window-full` - アクティブウィンドウを画面全体にリサイズ
 
-#### ウィンドウ管理
+### ウィンドウ管理
 - `tile-windows-left-right` - 上位2つのウィンドウを左右に並べる
 - `maximize-window` - アクティブウィンドウを最大化
 - `minimize-window` - アクティブウィンドウを最小化
@@ -85,13 +91,11 @@ command-palette.ahk をダブルクリックして実行
 ```ahk
 ; 1. コマンドリストに追加
 GetCommandList() {
-    commands := "
-    (
-    reload-autohotkey
-    ...
-    your-new-command
-    )"
-    return commands
+    return [
+        "reload-autohotkey",
+        ...
+        "your-new-command"
+    ]
 }
 
 ; 2. ルーターに追加
@@ -109,34 +113,91 @@ YourNewFunction() {
 }
 ```
 
-### fzfのカスタマイズ
+### GUIのカスタマイズ
 
-`ShowCommandPalette()` 関数内のfzfオプションを変更できます：
+`ShowCommandPalette()` 関数内でGUIの外観を変更できます：
 
 ```ahk
-fzfCmd := "powershell -Command `"Get-Content '" TempCommandFile "' | fzf --prompt='M-x: ' --height=40% --reverse --border --preview-window=right:50% | Out-File -Encoding UTF8 '" TempResultFile "'`""
+; 色の変更
+CommandPaletteGui.BackColor := "0x282828"  ; 背景色（ダークグレー）
+
+; 検索ボックスとリストの色
+SearchBox := CommandPaletteGui.Add("Edit", "x10 y35 w580 h25 Background0x3C3836 cWhite")
+CommandList := CommandPaletteGui.Add("ListBox", "x10 y70 w580 h400 Background0x3C3836 cWhite Choose1")
+
+; フォントの変更
+CommandPaletteGui.SetFont("s10", "Consolas")
+
+; ウィンドウサイズの変更
+CommandPaletteGui.Show("w600 h480 Center")
 ```
 
-fzfのオプション：
-- `--height` - 高さ
-- `--reverse` - リストを上から表示
-- `--border` - 境界線を表示
-- `--preview` - プレビューウィンドウを表示
-- `--prompt` - プロンプト文字列
+### ホットキーの変更
+
+スクリプトの冒頭で変更できます：
+
+```ahk
+; Alt+x (デフォルト)
+!x:: {
+    ShowCommandPalette()
+}
+
+; または Ctrl+Space に変更
+^Space:: {
+    ShowCommandPalette()
+}
+```
+
+## 技術詳細
+
+### アーキテクチャ
+
+- **GUI システム**: AutoHotkey v2のネイティブGUI API
+- **検索アルゴリズム**: カスタムファジーマッチング実装
+- **イベント処理**: リアルタイムフィルタリングとキーボードナビゲーション
+
+### ファジーマッチングアルゴリズム
+
+入力された文字が順番に含まれていればマッチします：
+
+```ahk
+FuzzyMatch(str, pattern) {
+    str := StrLower(str)
+    pattern := StrLower(pattern)
+
+    patternIdx := 1
+    patternLen := StrLen(pattern)
+
+    Loop Parse, str {
+        if (patternIdx > patternLen) {
+            return true
+        }
+        if (A_LoopField = SubStr(pattern, patternIdx, 1)) {
+            patternIdx++
+        }
+    }
+
+    return patternIdx > patternLen
+}
+```
 
 ## トラブルシューティング
 
-### fzfが見つからない場合
+### Alt+xが反応しない
 
-スクリプトの冒頭で`FzfPath`を修正してください：
+1. スクリプトが起動しているか確認（タスクトレイアイコンを確認）
+2. 他のアプリケーションがAlt+xを使用していないか確認
+3. スクリプトを右クリック → 「管理者として実行」を試す
 
-```ahk
-global FzfPath := "C:\\path\\to\\fzf.exe"
-```
+### GUIが表示されない
 
-### PowerShellが使えない場合
+1. スクリプトをリロード（タスクトレイアイコンを右クリック → Reload）
+2. AutoHotkey v2がインストールされているか確認（v1では動作しません）
 
-`ShowCommandPalette()` 関数を修正して、cmdを使用するように変更できます。
+### コマンドが実行されない
+
+1. エラーメッセージを確認
+2. スクリプトをリロード
 
 ## ライセンス
 
@@ -145,4 +206,4 @@ MIT License
 ## 参考
 
 - [AutoHotkey v2 Documentation](https://www.autohotkey.com/docs/v2/)
-- [fzf](https://github.com/junegunn/fzf)
+- [AutoHotkey GUI Documentation](https://www.autohotkey.com/docs/v2/lib/Gui.htm)

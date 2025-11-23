@@ -1,4 +1,4 @@
-; AutoHotkey v2 Command Palette with fzf
+; AutoHotkey v2 Command Palette with Native GUI
 ; Press Alt+x (M-x style) to open command palette
 
 #Requires AutoHotkey v2.0
@@ -6,9 +6,11 @@
 ; ============================================================================
 ; Global Variables
 ; ============================================================================
-global FzfPath := "fzf.exe"  ; Adjust path if needed
-global TempCommandFile := A_Temp "\ahk_commands.txt"
-global TempResultFile := A_Temp "\ahk_result.txt"
+global CommandPaletteGui := ""
+global SearchBox := ""
+global CommandList := ""
+global AllCommands := []
+global FilteredCommands := []
 
 ; ============================================================================
 ; Main Hotkey: Alt+x (M-x)
@@ -18,73 +20,220 @@ global TempResultFile := A_Temp "\ahk_result.txt"
 }
 
 ; ============================================================================
-; Command Palette System
+; Command Palette GUI System
 ; ============================================================================
 ShowCommandPalette() {
-    ; Create command list
-    commands := GetCommandList()
+    global CommandPaletteGui, SearchBox, CommandList, AllCommands, FilteredCommands
 
-    ; Write commands to temp file
-    try {
-        FileDelete(TempCommandFile)
+    ; Get all available commands
+    AllCommands := GetCommandList()
+    FilteredCommands := AllCommands.Clone()
+
+    ; Create GUI if it doesn't exist
+    if (!IsObject(CommandPaletteGui)) {
+        CommandPaletteGui := Gui("+AlwaysOnTop -Caption +Border", "M-x")
+        CommandPaletteGui.BackColor := "0x282828"
+        CommandPaletteGui.SetFont("s10", "Consolas")
+
+        ; Add prompt text
+        promptText := CommandPaletteGui.Add("Text", "x10 y10 w580 cWhite", "M-x:")
+
+        ; Add search box
+        SearchBox := CommandPaletteGui.Add("Edit", "x10 y35 w580 h25 Background0x3C3836 cWhite")
+        SearchBox.OnEvent("Change", FilterCommands)
+
+        ; Add command list
+        CommandList := CommandPaletteGui.Add("ListBox", "x10 y70 w580 h400 Background0x3C3836 cWhite Choose1")
+        CommandList.OnEvent("DoubleClick", ExecuteSelectedCommand)
+
+        ; Set up key handlers
+        SearchBox.OnEvent("KeyDown", HandleKeyDown)
+
+        ; Set up GUI close handler
+        CommandPaletteGui.OnEvent("Escape", CloseCommandPalette)
+        CommandPaletteGui.OnEvent("Close", CloseCommandPalette)
     }
-    FileAppend(commands, TempCommandFile)
 
-    ; Delete old result file
-    try {
-        FileDelete(TempResultFile)
-    }
+    ; Reset and populate the list
+    SearchBox.Value := ""
+    UpdateCommandList()
 
-    ; Build fzf command
-    fzfCmd := "powershell -Command `"Get-Content '" TempCommandFile "' | fzf --prompt='M-x: ' --height=40% --reverse --border | Out-File -Encoding UTF8 '" TempResultFile "'`""
+    ; Show GUI centered on screen
+    CommandPaletteGui.Show("w600 h480 Center")
+    SearchBox.Focus()
+}
 
-    ; Run fzf and wait for result
-    RunWait(fzfCmd, , "Hide")
+; ============================================================================
+; Filter Commands based on search input
+; ============================================================================
+FilterCommands(*) {
+    global SearchBox, AllCommands, FilteredCommands
 
-    ; Read selected command
-    if FileExist(TempResultFile) {
-        selectedCmd := FileRead(TempResultFile)
-        selectedCmd := Trim(selectedCmd, " `t`r`n")
+    searchText := SearchBox.Value
+    FilteredCommands := []
 
-        if (selectedCmd != "") {
-            ExecuteCommand(selectedCmd)
+    if (searchText = "") {
+        FilteredCommands := AllCommands.Clone()
+    } else {
+        ; Fuzzy matching: check if all characters in search text appear in order
+        for cmd in AllCommands {
+            if (FuzzyMatch(cmd, searchText)) {
+                FilteredCommands.Push(cmd)
+            }
         }
     }
 
-    ; Cleanup
-    try {
-        FileDelete(TempCommandFile)
-        FileDelete(TempResultFile)
+    UpdateCommandList()
+}
+
+; ============================================================================
+; Fuzzy Match Algorithm
+; ============================================================================
+FuzzyMatch(str, pattern) {
+    str := StrLower(str)
+    pattern := StrLower(pattern)
+
+    patternIdx := 1
+    patternLen := StrLen(pattern)
+
+    Loop Parse, str {
+        if (patternIdx > patternLen) {
+            return true
+        }
+        if (A_LoopField = SubStr(pattern, patternIdx, 1)) {
+            patternIdx++
+        }
     }
+
+    return patternIdx > patternLen
+}
+
+; ============================================================================
+; Update Command List Display
+; ============================================================================
+UpdateCommandList() {
+    global CommandList, FilteredCommands
+
+    ; Clear the list
+    CommandList.Delete()
+
+    ; Add filtered commands
+    if (FilteredCommands.Length > 0) {
+        for cmd in FilteredCommands {
+            CommandList.Add([cmd])
+        }
+        CommandList.Choose(1)
+    } else {
+        CommandList.Add(["No matches found"])
+    }
+}
+
+; ============================================================================
+; Handle Keyboard Navigation
+; ============================================================================
+HandleKeyDown(ctrl, key, *) {
+    global CommandList, FilteredCommands
+
+    ; Enter key - execute command
+    if (key = 13) { ; Enter
+        ExecuteSelectedCommand()
+        return
+    }
+
+    ; Escape key - close palette
+    if (key = 27) { ; Escape
+        CloseCommandPalette()
+        return
+    }
+
+    ; Arrow Down - move selection down
+    if (key = 40) { ; Down arrow
+        currentChoice := CommandList.Value
+        if (currentChoice < FilteredCommands.Length) {
+            CommandList.Choose(currentChoice + 1)
+        }
+        return
+    }
+
+    ; Arrow Up - move selection up
+    if (key = 38) { ; Up arrow
+        currentChoice := CommandList.Value
+        if (currentChoice > 1) {
+            CommandList.Choose(currentChoice - 1)
+        }
+        return
+    }
+
+    ; Ctrl+N - next item (Emacs-style)
+    if (key = 78 && GetKeyState("Ctrl")) { ; Ctrl+N
+        currentChoice := CommandList.Value
+        if (currentChoice < FilteredCommands.Length) {
+            CommandList.Choose(currentChoice + 1)
+        }
+        return
+    }
+
+    ; Ctrl+P - previous item (Emacs-style)
+    if (key = 80 && GetKeyState("Ctrl")) { ; Ctrl+P
+        currentChoice := CommandList.Value
+        if (currentChoice > 1) {
+            CommandList.Choose(currentChoice - 1)
+        }
+        return
+    }
+}
+
+; ============================================================================
+; Execute Selected Command
+; ============================================================================
+ExecuteSelectedCommand(*) {
+    global CommandList, FilteredCommands, CommandPaletteGui
+
+    if (FilteredCommands.Length = 0) {
+        return
+    }
+
+    selectedIdx := CommandList.Value
+    if (selectedIdx > 0 && selectedIdx <= FilteredCommands.Length) {
+        selectedCmd := FilteredCommands[selectedIdx]
+        CommandPaletteGui.Hide()
+        ExecuteCommand(selectedCmd)
+    }
+}
+
+; ============================================================================
+; Close Command Palette
+; ============================================================================
+CloseCommandPalette(*) {
+    global CommandPaletteGui
+    CommandPaletteGui.Hide()
 }
 
 ; ============================================================================
 ; Command List Definition
 ; ============================================================================
 GetCommandList() {
-    commands := "
-    (
-    reload-autohotkey
-    suspend-autohotkey
-    resume-autohotkey
-    exit-autohotkey
-    launch-notepad
-    launch-calculator
-    launch-browser
-    launch-terminal
-    move-window-left
-    move-window-right
-    move-window-center
-    resize-window-half
-    resize-window-full
-    tile-windows-left-right
-    maximize-window
-    minimize-window
-    close-window
-    pin-window-topmost
-    unpin-window-topmost
-    )"
-    return commands
+    return [
+        "reload-autohotkey",
+        "suspend-autohotkey",
+        "resume-autohotkey",
+        "exit-autohotkey",
+        "launch-notepad",
+        "launch-calculator",
+        "launch-browser",
+        "launch-terminal",
+        "move-window-left",
+        "move-window-right",
+        "move-window-center",
+        "resize-window-half",
+        "resize-window-full",
+        "tile-windows-left-right",
+        "maximize-window",
+        "minimize-window",
+        "close-window",
+        "pin-window-topmost",
+        "unpin-window-topmost"
+    ]
 }
 
 ; ============================================================================
